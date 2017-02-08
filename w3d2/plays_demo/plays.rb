@@ -11,17 +11,6 @@ class PlayDBConnection < SQLite3::Database
   end
 end
 
-class PlaywrightsDBConnection < SQLite3::Database
-  include Singleton
-
-  def initialize
-    super('playwrights.db')
-    self.type_translation = true
-    self.results_as_hash = true
-  end
-end
-
-
 
 class Play
   attr_accessor :title, :year, :playwright_id
@@ -97,7 +86,7 @@ class Playwright
   attr_accessor :name, :birth_year
 
   def self.all
-    data = PlaywrightsDBConnection.instance.execute("SELECT * FROM playwrights")
+    data = PlayDBConnection.instance.execute("SELECT * FROM playwrights")
     data.map { |datum| Playwright.new(datum) }
   end
 
@@ -109,13 +98,13 @@ class Playwright
 
   def create
     raise "#{self} already in database" if @id
-    PlaywrightsDBConnection.instance.execute(<<-SQL, @name, @birth_year)
+    PlayDBConnection.instance.execute(<<-SQL, @name, @birth_year)
       INSERT INTO
         playwrights (name, birth_year)
       VALUES
         (?, ?, ?)
     SQL
-    @id = PlaywrightsDBConnection.instance.last_insert_row_id
+    @id = PlayDBConnection.instance.last_insert_row_id
   end
 
   def update
@@ -130,20 +119,18 @@ class Playwright
     SQL
   end
 
-  def get_plays(name)
-    play = PlaywrightsDBConnection.instance.execut(<<-SQL, name)
+  def get_plays(id)
+    plays = PlayDBConnection.instance.execute(<<-SQL, id)
       SELECT
         *
       FROM
         playwrights
-      JOIN
-        plays ON plays.playwright_id = playwrights.id
       WHERE
-        playwrights.name
+        id = ?
     SQL
-    return nil if play.length.empty?
+    return nil unless plays.length > 0
 
-    Playwright.new(play.first)
+    plays.map { |play| Play.new(play) }
   end
 
 
